@@ -84,6 +84,7 @@ def test(config, epoch, model):
 
 
 def train(args, config, model):
+    start = time.time()
     # filename
     filename_train_text = config.filename_trimmed_train_text
     filename_train_summary = config.filename_trimmed_train_summary
@@ -119,7 +120,7 @@ def train(args, config, model):
             optim.step()
             all_loss += loss.item()
             num += 1
-            if step % 200 == 0:
+            if step % 20 == 0:
                 if torch.cuda.is_available():
                     a = list(a.cpu().numpy())
                     b = list(torch.argmax(b, dim=1).cpu().numpy())
@@ -134,14 +135,13 @@ def train(args, config, model):
         # train loss
         print('epoch:', e, '|train_loss: %.4f' % (all_loss / num))
         save_model(model, e)
-
+        end = time.time()
+        print('time: ', (end-start))
         # test
         # test(config, e, model)
 
 
 if __name__ == '__main__':
-    start = time.time()
-
     # Hyper Parameters
     VOCAB_SIZE = 4000
     EMBEDDING_SIZE = 300
@@ -151,6 +151,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', '-b', type=int, default=128, help='batch size for train')
     parser.add_argument('--hidden_size', '-s', type=int, default=512, help='dimension of  code')
     parser.add_argument('--epoch', '-e', type=int, default=20, help='number of training epochs')
+    parser.add_argument('--num_layers', '-n', type=int, default=2, help='number of gru layers')
     # parser.add_argument('--devices', '-d', type=int, default=2, help='specify a gpu')
     args = parser.parse_args()
 
@@ -159,12 +160,12 @@ if __name__ == '__main__':
 
     # model
     if torch.cuda.is_available():
-        encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, 2).cuda()
-        decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size).cuda()
+        encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
+        decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
         seq2seq = Seq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.bos).cuda()
     else:
-        encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, 2)
-        decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size)
+        encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers)
+        decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers)
         seq2seq = Seq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.bos)
 
     train(args, config, seq2seq)

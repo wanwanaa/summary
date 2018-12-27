@@ -25,24 +25,26 @@ class Encoder(nn.Module):
 
     def forward(self, x):
         e = self.embeds(x)
-        out, _ = self.encoder_gru(e)
-        code = out[:, -1, :self.hidden_size] + out[:, -1, self.hidden_size:]
-        return code.view(1, -1, self.hidden_size)
+        out, h = self.encoder_gru(e)
+        out = out[:, :, :self.hidden_size] + out[:, :, self.hidden_size:]
+        h = h[:self.num_layers]
+        return h, out
 
 
 class Decoder(nn.Module):
-    def __init__(self, embeddings, vocab_size, embedding_dim, hidden_size):
+    def __init__(self, embeddings, vocab_size, embedding_dim, hidden_size, num_layers):
         super(Decoder, self).__init__()
         self.embeddings = embeddings
         self.vocab_size = vocab_size
         self.embedding_dim = embedding_dim
         self.hidden_size = hidden_size
+        self.num_layers = num_layers
 
         # embedding
         self.embeds = nn.Embedding.from_pretrained(embeddings)
 
         # decoder
-        self.decoder_gru = nn.GRU(self.embedding_dim, self.hidden_size, batch_first=True)
+        self.decoder_gru = nn.GRU(self.embedding_dim, self.hidden_size, batch_first=True, num_layers=num_layers)
         self.decoder_vocab = nn.Linear(self.hidden_size, self.vocab_size)
 
     def forward(self, x, h):
@@ -78,7 +80,7 @@ class Seq2Seq(nn.Module):
         return output.view(-1, x.size(1), self.vocab_size)
 
     def forward(self, x, y):
-        code = self.encoder(x)
+        code, _ = self.encoder(x)
         y = self.convert(y)
         out, h = self.decoder(y, code)
         out = self.output_layer(out)
