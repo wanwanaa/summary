@@ -3,10 +3,11 @@ import pickle
 import argparse
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 from LCSTS_char.config import Config
-from LSTM.model import Encoder, Decoder, Seq2Seq
-from LSTM.ROUGE import rouge_score, write_rouge
+from LSTM.model import Encoder, Decoder, Seq2Seq, Attention, AttnDecoder, AttnSeq2Seq
+# from LSTM.ROUGE import rouge_score, write_rouge
 from LCSTS_char.data_utils import index2sentence, load_data, load_embeddings
 
 LR = 0.001
@@ -51,7 +52,7 @@ def test(config, epoch, model):
             out = out.type(torch.LongTensor).view(-1, 1)
             out, h = model.decoder(out, h)
             out = torch.squeeze(model.output_layer(out))
-            out = torch.nn.functional.softmax(out, dim=1)
+            out = F.softmax(out, dim=1)
             out = torch.argmax(out, dim=1)
             result.append(out.numpy())
         result = np.transpose(np.array(result))
@@ -109,10 +110,10 @@ def train(args, config, model):
             if torch.cuda.is_available():
                 x = x.cuda()
                 y = y.cuda()
-            result, _ = model(x, y)
+            result = model(x, y)
             a = y[0]
             b = result[0]
-            result = result.view(-1, 4000)
+            result = result.contiguous().view(-1, 4000)
             y = y.view(-1)
             loss = loss_func(result, y)
             optim.zero_grad()
@@ -152,6 +153,7 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_size', '-s', type=int, default=512, help='dimension of  code')
     parser.add_argument('--epoch', '-e', type=int, default=20, help='number of training epochs')
     parser.add_argument('--num_layers', '-n', type=int, default=2, help='number of gru layers')
+    # parser.add_argument('--attention', '-a', type=) # bool
     # parser.add_argument('--devices', '-d', type=int, default=2, help='specify a gpu')
     args = parser.parse_args()
 
@@ -159,14 +161,28 @@ if __name__ == '__main__':
     config = Config()
 
     # model
+    # if torch.cuda.is_available():
+    #     encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
+    #     decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
+    #     seq2seq = Seq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.bos).cuda()
+    # else:
+    #     encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers)
+    #     decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers)
+    #     seq2seq = Seq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.bos)
+
+    # attention model
     if torch.cuda.is_available():
         encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
-        decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
-        seq2seq = Seq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.bos).cuda()
+        attention = Attention(args.hidden_size).cuda()
+        decoder = AttnDecoder(attention, embeddings, VOCAB_SIZE, EMBEDDING_SIZE,
+                              args.hidden_size, config.summary_len, args.num_layers).cuda()
+        seq2seq = AttnSeq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.summary_len, config.bos).cuda()
     else:
         encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers)
-        decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers)
-        seq2seq = Seq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.bos)
+        attention = Attention(args.hidden_size)
+        decoder = AttnDecoder(attention, embeddings, VOCAB_SIZE, EMBEDDING_SIZE,
+                              args.hidden_size, config.summary_len, args.num_layers)
+        seq2seq = AttnSeq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.summary_len, config.bos)
 
     train(args, config, seq2seq)
 
