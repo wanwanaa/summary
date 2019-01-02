@@ -80,6 +80,8 @@ class AttnDecoder(nn.Module):
     def forward(self, x, h, encoder_output):
         e = self.embeds(x).unsqueeze(1)
         context = self.attention(h, encoder_output)
+        # print('e:', e.size())
+        # print('context:', context.size())
         inputs = torch.cat((e, context), dim=2)
         out, h = self.decoder_gru(inputs, h)
         return out, h
@@ -155,6 +157,9 @@ class AttnSeq2Seq(nn.Module):
 
         self.output_Linear = nn.Linear(self.hidden_size, self.vocab_size)
 
+    def output_layer(self, x):
+        return self.output_Linear(x)
+
     def convert(self, x):
         if torch.cuda.is_available():
             start = (torch.ones(x.size(0), 1) * self.bos).type(torch.cuda.LongTensor)
@@ -169,6 +174,6 @@ class AttnSeq2Seq(nn.Module):
         result = []
         for i in range(self.s_len):
             out, h = self.decoder(y[:, i], h, encoder_out)
-            result.append(self.output_Linear(out).squeeze())
+            result.append(self.output_layer(out).squeeze())
         outputs = torch.stack(result)
         return torch.transpose(outputs, 0, 1)

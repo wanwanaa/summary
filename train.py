@@ -13,12 +13,12 @@ from LCSTS_char.data_utils import index2sentence, load_data, load_embeddings
 LR = 0.001
 
 # embeddings
-filename = 'DATA/result/glove_embeddings_300d.pt'
+filename = 'DATA/data/glove_embeddings_300d.pt'
 embeddings = load_embeddings(filename)
 
 
 def save_model(model, epoch):
-    filename = 'LSTM/models/summary/model_' + str(epoch) + '.pkl'
+    filename = 'LSTM/models/summary/seq2seq/model_' + str(epoch) + '.pkl'
     torch.save(model.state_dict(), filename)
     print('model save at ', filename)
 
@@ -61,7 +61,7 @@ def test(config, epoch, model):
             sen = index2sentence(list(result[i]), idx2word)
             r.append(' '.join(sen))
     # write result
-    filename_result = 'DATA/result/summary/summary_result_' + str(epoch) + '.txt'
+    filename_result = 'DATA/result/summary/summary/summary_result_' + str(epoch) + '.txt'
     with open(filename_result, 'w', encoding='utf-8') as f:
         f.write('\n'.join(r))
 
@@ -87,8 +87,8 @@ def test(config, epoch, model):
 def train(args, config, model):
     start = time.time()
     # filename
-    filename_train_text = config.filename_trimmed_train_text
-    filename_train_summary = config.filename_trimmed_train_summary
+    filename_train_text = config.filename_trimmed_valid_text
+    filename_train_summary = config.filename_trimmed_valid_summary
     filename_idx2word = config.filename_index
 
     # data
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     # config
     config = Config()
 
-    # model
+    # # model
     # if torch.cuda.is_available():
     #     encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
     #     decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
@@ -185,4 +185,3 @@ if __name__ == '__main__':
         seq2seq = AttnSeq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.summary_len, config.bos)
 
     train(args, config, seq2seq)
-

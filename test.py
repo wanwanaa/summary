@@ -2,26 +2,32 @@ import pickle
 import torch
 import numpy as np
 from LCSTS_char.config import Config
-from LSTM.model import Encoder, Decoder, Seq2Seq
+from LSTM.model import Encoder, Decoder, Seq2Seq, Attention, AttnDecoder, AttnSeq2Seq
 from LSTM.ROUGE import rouge_score, write_rouge
 from LCSTS_char.data_utils import index2sentence, load_data, load_embeddings
-
 # embeddings
-filename = 'DATA/result/glove_embeddings_300d.pt'
+filename = 'DATA/data/glove_embeddings_300d.pt'
 embeddings = load_embeddings(filename)
-
 VOCAB_SIZE = 4000
 EMBEDDING_SIZE = 300
 HIDDEN_SIZE = 512
 BATCH_SIZE = 128
-EPOCH = 20
+EPOCH = 1
 
 
 def load_model(epoch):
-    filename = 'LSTM/models/summary/model_' + str(epoch) + '.pkl'
+    filename = 'LSTM/models/summary/attention/model_' + str(epoch) + '.pkl'
+    # Seq2Seq
+    # encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, HIDDEN_SIZE, 2)
+    # decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, HIDDEN_SIZE, 2)
+    # model = Seq2Seq(encoder, decoder, VOCAB_SIZE, HIDDEN_SIZE, 2)
+
+    # attention model
     encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, HIDDEN_SIZE, 2)
-    decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, HIDDEN_SIZE)
-    model = Seq2Seq(encoder, decoder, VOCAB_SIZE, HIDDEN_SIZE, 2)
+    attention = Attention(HIDDEN_SIZE)
+    decoder = AttnDecoder(attention, embeddings, VOCAB_SIZE, EMBEDDING_SIZE,
+                          HIDDEN_SIZE, config.summary_len, 2)
+    model = AttnSeq2Seq(encoder, decoder, VOCAB_SIZE, HIDDEN_SIZE, config.summary_len, config.bos)
     model.load_state_dict(torch.load(filename, map_location='cpu'))
     return model
 
@@ -41,14 +47,13 @@ def test(config, epoch, model):
 
     bos = config.bos
     s_len = config.summary_len
-
     r = []
     for batch in test:
         x, y = batch
         if torch.cuda.is_available():
             x = x.cuda()
             y = y.cuda()
-        h = model.encoder(x)
+        h, _ = model.encoder(x)
         out = (torch.ones(x.size(0)) * bos)
         result = []
         for i in range(s_len):
@@ -63,8 +68,9 @@ def test(config, epoch, model):
             # sen1 = index2sentence(list(x[i]), idx2word)
             sen = index2sentence(list(result[i]), idx2word)
             r.append(' '.join(sen))
+
     # write result
-    filename_result = 'DATA/result/summary/summary_result_' + str(epoch) + '.txt'
+    filename_result = 'DATA/result/summary/attention/summary_' + str(epoch) + '.txt'
     with open(filename_result, 'w', encoding='utf-8') as f:
         f.write('\n'.join(r))
 
@@ -72,7 +78,7 @@ def test(config, epoch, model):
     score = rouge_score(config.gold_summaries, filename_result)
 
     # write rouge
-    filename_rouge = 'DATA/result/summary/ROUGE_' + str(epoch) + '.txt'
+    filename_rouge = 'DATA/result/summary/attention/ROUGE_' + str(epoch) + '.txt'
     write_rouge(filename_rouge, score)
 
     # print rouge
