@@ -1,4 +1,7 @@
 .idea/
+DATA/glove.6B/
+DATA/LCSTS/
+DATA/data/
 LCSTS_char/__pycache__/
 LSTM/models/
 LSTM/__pycache__/

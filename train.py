@@ -87,8 +87,8 @@ def test(config, epoch, model):
 def train(args, config, model):
     start = time.time()
     # filename
-    filename_train_text = config.filename_trimmed_valid_text
-    filename_train_summary = config.filename_trimmed_valid_summary
+    filename_train_text = config.filename_trimmed_train_text
+    filename_train_summary = config.filename_trimmed_train_summary
     filename_idx2word = config.filename_index
 
     # data
