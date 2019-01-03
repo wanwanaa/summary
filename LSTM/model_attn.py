@@ -40,24 +40,22 @@ class Encoder(nn.Module):
 
 
 class Attention(nn.Module):
-    def __init__(self, hidden_size, embedding_dim, t_len):
+    def __init__(self, hidden_size):
         super(Attention, self).__init__()
         self.hidden_size = hidden_size
-        self.embedding_dim = embedding_dim
-        self.t_len = t_len
 
-        self.attn = nn.Linear(self.hidden_size+self.embedding_dim, self.t_len)
+        self.attn = nn.Linear(self.hidden_size*2, 1)
 
-    def forward(self, embedded, hidden, encoder_out):
-        # embedded (batch, embedding_dim)
+    def forward(self, hidden, encoder_out):
         # encoder_out (batch, time_step, hidden_size)
-        # hidden (n_layers, batch, hidden_size)
-        # weights (batch, t_len) -> (batch, 1, t_len)
-        attn_weights = F.softmax(self.attn(torch.cat((embedded, hidden[0]), dim=1))).unsqueeze(1)
+        # hidden (n_layers, batch, hidden_size) -> (1, batch, hidden_size)
+        #     -> (batch, 1, hidden_size) -> (batch, time_step, hidden_size)
+        hidden = hidden[-1].view(-1, 1, self.hidden_size).repeat(1, encoder_out.size(1), 1)
 
-        # context (batch, 1, hidden_size)
-        context = torch.bmm(attn_weights, encoder_out)
+        # attn_weights (batch, 1, time_step)
+        attn_weights = F.softmax(self.attn(torch.cat((hidden, encoder_out), dim=2)).squeeze()).unsqueeze(1)
 
+        context = torch.bmm(attn_weights, encoder_out) # (batch, 1, hidden_size)
         return context
 
 
@@ -76,16 +74,15 @@ class AttnDecoder(nn.Module):
         self.embeds = nn.Embedding.from_pretrained(embeddings)
 
         # decoder
-        self.attn_combine = nn.Linear(self.hidden_size + self.embedding_dim, self.embedding_dim)
-        self.decoder_gru = nn.GRU(self.embedding_dim, self.hidden_size, batch_first=True, num_layers=num_layers)
+        self.decoder_gru = nn.GRU(self.embedding_dim+self.hidden_size, self.hidden_size, batch_first=True, num_layers=num_layers)
         self.decoder_vocab = nn.Linear(self.hidden_size, self.vocab_size)
 
     def forward(self, x, h, encoder_output):
-        e = self.embeds(x)
+        e = self.embeds(x).unsqueeze(1)
+        context = self.attention(h, encoder_output)
         # print('e:', e.size())
-        context = self.attention(e, h, encoder_output)
         # print('context:', context.size())
-        inputs = self.attn_combine(torch.cat((e.unsqueeze(1), context), dim=2))
+        inputs = torch.cat((e, context), dim=2)
         out, h = self.decoder_gru(inputs, h)
         return out, h
 

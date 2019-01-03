@@ -12,12 +12,12 @@ VOCAB_SIZE = 4000
 EMBEDDING_SIZE = 300
 HIDDEN_SIZE = 512
 BATCH_SIZE = 128
-EPOCH = 1
+EPOCH = 20
 
 
 def load_model(epoch):
     filename = 'LSTM/models/summary/attention/model_' + str(epoch) + '.pkl'
-    # Seq2Seq
+    # # Seq2Seq
     # encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, HIDDEN_SIZE, 2)
     # decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, HIDDEN_SIZE, 2)
     # model = Seq2Seq(encoder, decoder, VOCAB_SIZE, HIDDEN_SIZE, 2)
@@ -53,12 +53,21 @@ def test(config, epoch, model):
         if torch.cuda.is_available():
             x = x.cuda()
             y = y.cuda()
-        h, _ = model.encoder(x)
+        # # seq2seq
+        # h, _ = model.encoder(x)
+        # attention
+        h, encoder_outputs = model.encoder(x)
+
         out = (torch.ones(x.size(0)) * bos)
         result = []
         for i in range(s_len):
-            out = out.type(torch.LongTensor).view(-1, 1)
-            out, h = model.decoder(out, h)
+            # # seq2seq
+            # out = out.type(torch.LongTensor).view(-1, 1)
+
+            # attention
+            out = out.type(torch.LongTensor)
+
+            out, h = model.decoder(out, h, encoder_outputs)
             out = torch.squeeze(model.output_layer(out))
             out = torch.nn.functional.softmax(out, dim=1)
             out = torch.argmax(out, dim=1)

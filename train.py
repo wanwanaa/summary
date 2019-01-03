@@ -173,13 +173,13 @@ if __name__ == '__main__':
     # attention model
     if torch.cuda.is_available():
         encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
-        attention = Attention(args.hidden_size).cuda()
+        attention = Attention(args.hidden_size, EMBEDDING_SIZE, config.seq_len).cuda()
         decoder = AttnDecoder(attention, embeddings, VOCAB_SIZE, EMBEDDING_SIZE,
                               args.hidden_size, config.summary_len, args.num_layers).cuda()
         seq2seq = AttnSeq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.summary_len, config.bos).cuda()
     else:
         encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers)
-        attention = Attention(args.hidden_size)
+        attention = Attention(args.hidden_size, EMBEDDING_SIZE, config.seq_len)
         decoder = AttnDecoder(attention, embeddings, VOCAB_SIZE, EMBEDDING_SIZE,
                               args.hidden_size, config.summary_len, args.num_layers)
         seq2seq = AttnSeq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.summary_len, config.bos)
