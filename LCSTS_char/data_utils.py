@@ -134,7 +134,7 @@ def get_embeddings(filename_glove, filename, word2idx, vocab_size, dim):
             line = line.strip().split(' ')
             word = line[0]
             if word in word2idx.keys():
-                flag.pop(word2idx[word])
+                flag.remove(word2idx[word])
                 embedding = [float(x) for x in line[1:]]
                 embeddings[word2idx[word]] = embedding
     for i in flag:
@@ -166,3 +166,18 @@ def load_data(filename_text, filename_summary, batch_size, shuffle, num_works):
 def load_embeddings(filename):
     embeddings = torch.load(filename).type(torch.FloatTensor)
     return embeddings
+
+
+# GloVe train.txt
+def write_train(text, summary):
+    result = []
+    for line in text:
+        result.append(' '.join(list(line)))
+    with open('DATA/data/train.txt', 'w', encoding='utf-8') as f:
+        f.write('\n'.join(result))
+    # result = []
+    # for line in summary:
+    #     result.append(' '.join(list(line)))
+    # with open('DATA/data/train.txt', 'w', encoding='utf-8') as f:
+    #     f.write('\n'.join(result))
+    print('train.txt save at DATA/data')

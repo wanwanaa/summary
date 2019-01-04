@@ -13,7 +13,10 @@ class Encoder(nn.Module):
         self.num_layers = num_layers
 
         # embedding
-        self.embeds = nn.Embedding.from_pretrained(embeddings)
+        if embeddings is None:
+            self.embeds = nn.Embedding(vocab_size, embedding_dim)
+        else:
+            self.embeds = nn.Embedding.from_pretrained(embeddings)
 
         # encoder
         # input size(batch, time_step, embedding_dim)
@@ -22,7 +25,8 @@ class Encoder(nn.Module):
                                   self.hidden_size,
                                   batch_first=True,
                                   bidirectional=True,
-                                  num_layers=self.num_layers)
+                                  num_layers=self.num_layers,
+                                  dropout=0.5)
 
     def forward(self, x):
         e = self.embeds(x)
@@ -73,11 +77,18 @@ class AttnDecoder(nn.Module):
         self.num_layers = num_layers
 
         # embedding
-        self.embeds = nn.Embedding.from_pretrained(embeddings)
+        if embeddings is None:
+            self.embeds = nn.Embedding(vocab_size, embedding_dim)
+        else:
+            self.embeds = nn.Embedding.from_pretrained(embeddings)
 
         # decoder
         self.attn_combine = nn.Linear(self.hidden_size + self.embedding_dim, self.embedding_dim)
-        self.decoder_gru = nn.GRU(self.embedding_dim, self.hidden_size, batch_first=True, num_layers=num_layers)
+        self.decoder_gru = nn.GRU(self.embedding_dim,
+                                  self.hidden_size,
+                                  batch_first=True,
+                                  num_layers=num_layers,
+                                  dropout=0.5)
         self.decoder_vocab = nn.Linear(self.hidden_size, self.vocab_size)
 
     def forward(self, x, h, encoder_output):
@@ -100,10 +111,17 @@ class Decoder(nn.Module):
         self.num_layers = num_layers
 
         # embedding
-        self.embeds = nn.Embedding.from_pretrained(embeddings)
+        if embeddings is None:
+            self.embeds = nn.Embedding(vocab_size, embedding_dim)
+        else:
+            self.embeds = nn.Embedding.from_pretrained(embeddings)
 
         # decoder
-        self.decoder_gru = nn.GRU(self.embedding_dim, self.hidden_size, batch_first=True, num_layers=num_layers)
+        self.decoder_gru = nn.GRU(self.embedding_dim,
+                                  self.hidden_size,
+                                  batch_first=True,
+                                  num_layers=num_layers,
+                                  dropout=0.5)
         self.decoder_vocab = nn.Linear(self.hidden_size, self.vocab_size)
 
     def forward(self, x, h):

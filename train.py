@@ -13,8 +13,9 @@ from LCSTS_char.data_utils import index2sentence, load_data, load_embeddings
 LR = 0.001
 
 # embeddings
-filename = 'DATA/data/glove_embeddings_300d.pt'
-embeddings = load_embeddings(filename)
+# filename = 'DATA/data/glove_embeddings_300d.pt'
+# embeddings = load_embeddings(filename)
+embeddings = None
 
 
 def save_model(model, epoch):

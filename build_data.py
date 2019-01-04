@@ -1,6 +1,7 @@
 import argparse
 from LCSTS_char.config import Config
-from LCSTS_char.data_utils import file_check, get_datasets_train, get_datasets, get_vocab, word2index, index2word, write_vocab, get_trimmed_datasets, get_embeddings, write_gold_summaries
+from LCSTS_char.data_utils import file_check, get_datasets_train, get_datasets, get_vocab, word2index, index2word, \
+    write_vocab, get_trimmed_datasets, get_embeddings, write_gold_summaries, write_train
 
 
 def main():
@@ -62,13 +63,24 @@ def main():
     get_trimmed_datasets(config.filename_trimmed_test_summary, test_summary, word2idx, config.summary_len)
 
     # gold summaries
-    write_gold_summaries(dataset, config.gold_summaries)
+    write_gold_summaries(test_summary, config.gold_summaries)
 
 
 if __name__ == '__main__':
     # print('build_data...')
     # main()
     # print('Done!')
+
     config = Config()
-    _, datasets = get_datasets(config.filename_test)
-    write_gold_summaries(datasets, config.gold_summaries)
+    # _, datasets = get_datasets(config.filename_test)
+    # write_gold_summaries(datasets, config.gold_summaries)
+
+    # # search word in GloVe
+    # train, train_summary = get_datasets_train(config.filename_train)
+    # vocab = get_vocab(train)
+    # word2idx = word2index(vocab, config.vocab_size)
+    # get_embeddings(config.filename_glove, config.filename_embeddings, word2idx, config.vocab_size, config.dim)
+
+    # # get train.txt for training GloVe
+    # text, summary = get_datasets_train(config.filename_train)
+    # write_train(text, summary)

@@ -2,7 +2,7 @@ import pickle
 import torch
 import numpy as np
 from LCSTS_char.config import Config
-from LSTM.model import Encoder, Decoder, Seq2Seq, Attention, AttnDecoder, AttnSeq2Seq
+from LSTM.model_attn import Encoder, Decoder, Seq2Seq, Attention, AttnDecoder, AttnSeq2Seq
 from LSTM.ROUGE import rouge_score, write_rouge
 from LCSTS_char.data_utils import index2sentence, load_data, load_embeddings
 # embeddings
@@ -33,6 +33,9 @@ def load_model(epoch):
 
 
 def test(config, epoch, model):
+    # test
+    model = model.eval()
+
     # filename
     filename_test_text = config.filename_trimmed_test_text
     filename_test_summary = config.filename_trimmed_test_summary
