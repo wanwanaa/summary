@@ -12,11 +12,6 @@ from LCSTS_char.data_utils import index2sentence, load_data, load_embeddings
 
 LR = 0.001
 
-# embeddings
-# filename = 'DATA/data/glove_embeddings_300d.pt'
-# embeddings = load_embeddings(filename)
-embeddings = None
-
 
 def save_model(model, epoch):
     filename = 'LSTM/models/summary/seq2seq/model_' + str(epoch) + '.pkl'
@@ -154,35 +149,53 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_size', '-s', type=int, default=512, help='dimension of  code')
     parser.add_argument('--epoch', '-e', type=int, default=20, help='number of training epochs')
     parser.add_argument('--num_layers', '-n', type=int, default=2, help='number of gru layers')
-    # parser.add_argument('--attention', '-a', type=) # bool
+    parser.add_argument('--pretrain', '-p', action='store_true', default=False, help="load pretrain embedding")
+    parser.add_argument('--attention', '-a', action='store_true', default=False, help="whether to use attention")
     # parser.add_argument('--devices', '-d', type=int, default=2, help='specify a gpu')
     args = parser.parse_args()
 
     # config
     config = Config()
 
-    # # model
-    # if torch.cuda.is_available():
-    #     encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
-    #     decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
-    #     seq2seq = Seq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.bos).cuda()
-    # else:
-    #     encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers)
-    #     decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers)
-    #     seq2seq = Seq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.bos)
-
-    # attention model
-    if torch.cuda.is_available():
-        encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
-        attention = Attention(args.hidden_size, EMBEDDING_SIZE, config.seq_len).cuda()
-        decoder = AttnDecoder(attention, embeddings, VOCAB_SIZE, EMBEDDING_SIZE,
-                              args.hidden_size, config.summary_len, args.num_layers).cuda()
-        seq2seq = AttnSeq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.summary_len, config.bos).cuda()
+    # embedding
+    if args.pretrain is True:
+        filename = 'DATA/data/glove_embeddings_300d.pt'
+        embeddings = load_embeddings(filename)
     else:
-        encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers)
-        attention = Attention(args.hidden_size, EMBEDDING_SIZE, config.seq_len)
-        decoder = AttnDecoder(attention, embeddings, VOCAB_SIZE, EMBEDDING_SIZE,
-                              args.hidden_size, config.summary_len, args.num_layers)
-        seq2seq = AttnSeq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.summary_len, config.bos)
+        embeddings = None
+
+    # model
+    if args.attention is True:
+        # attention model
+        print('attention')
+        if torch.cuda.is_available():
+            encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
+            # # v1
+            # attention = Attention(args.hidden_size).cuda()
+            # v2
+            attention = Attention(args.hidden_size, EMBEDDING_SIZE, config.seq_len).cuda()
+            decoder = AttnDecoder(attention, embeddings, VOCAB_SIZE, EMBEDDING_SIZE,
+                                  args.hidden_size, config.summary_len, args.num_layers).cuda()
+            seq2seq = AttnSeq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.summary_len, config.bos).cuda()
+        else:
+            encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers)
+            # # v1
+            # attention = Attention(args.hidden_size).cuda()
+            # v2
+            attention = Attention(args.hidden_size, EMBEDDING_SIZE, config.seq_len)
+            decoder = AttnDecoder(attention, embeddings, VOCAB_SIZE, EMBEDDING_SIZE,
+                                  args.hidden_size, config.summary_len, args.num_layers)
+            seq2seq = AttnSeq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.summary_len, config.bos)
+    else:
+        # seq2seq model
+        print('seq2seq')
+        if torch.cuda.is_available():
+            encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
+            decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
+            seq2seq = Seq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.bos).cuda()
+        else:
+            encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers)
+            decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, args.hidden_size, args.num_layers)
+            seq2seq = Seq2Seq(encoder, decoder, VOCAB_SIZE, args.hidden_size, config.bos)
 
     train(args, config, seq2seq)
