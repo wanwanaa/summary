@@ -1,40 +1,16 @@
 import pickle
 import torch
+import argparse
 import numpy as np
 from LCSTS_char.config import Config
-from LSTM.model import Encoder, Decoder, Seq2Seq, Attention, AttnDecoder, AttnSeq2Seq
 from LSTM.ROUGE import rouge_score, write_rouge
+from LSTM.save_load import load_model
 from LCSTS_char.data_utils import index2sentence, load_data, load_embeddings
-# embeddings
-filename = 'DATA/data/glove_embeddings.pt'
-embeddings = load_embeddings(filename)
-VOCAB_SIZE = 4000
-EMBEDDING_SIZE = 300
-HIDDEN_SIZE = 512
-BATCH_SIZE = 128
-EPOCH = 20
 
 
-def load_model(epoch):
-    filename = 'LSTM/models/summary/attention/model_' + str(epoch) + '.pkl'
-    # Seq2Seq
-    encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, HIDDEN_SIZE, 2)
-    decoder = Decoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, HIDDEN_SIZE, 2)
-    model = Seq2Seq(encoder, decoder, VOCAB_SIZE, HIDDEN_SIZE, 2)
-
-    # # attention model
-    # encoder = Encoder(embeddings, VOCAB_SIZE, EMBEDDING_SIZE, HIDDEN_SIZE, 2)
-    # attention = Attention(HIDDEN_SIZE)
-    # decoder = AttnDecoder(attention, embeddings, VOCAB_SIZE, EMBEDDING_SIZE,
-    #                       HIDDEN_SIZE, config.summary_len, 2)
-    # model = AttnSeq2Seq(encoder, decoder, VOCAB_SIZE, HIDDEN_SIZE, config.summary_len, config.bos)
-    # model.load_state_dict(torch.load(filename, map_location='cpu'))
-    return model
-
-
-def test(config, epoch, model):
-    # test
-    # model = model.eval()
+def test(config, epoch, model, args):
+    # batch, dropout
+    model = model.eval()
 
     # filename
     filename_test_text = config.filename_trimmed_test_text
@@ -42,7 +18,7 @@ def test(config, epoch, model):
     filename_idx2word = config.filename_index
 
     # data
-    test = load_data(filename_test_text, filename_test_summary, BATCH_SIZE, shuffle=False, num_works=2)
+    test = load_data(filename_test_text, filename_test_summary, args.batch_size, shuffle=False, num_works=2)
 
     # idx2word
     f = open(filename_idx2word, 'rb')
@@ -56,34 +32,42 @@ def test(config, epoch, model):
         if torch.cuda.is_available():
             x = x.cuda()
             y = y.cuda()
-        # # seq2seq
-        # h, _ = model.encoder(x)
+        # model
         # attention
-        h, encoder_outputs = model.encoder(x)
+        if args.attention is True:
+            h, encoder_outputs = model.encoder(x)
+            out = (torch.ones(x.size(0)) * bos)
+            result = []
+            for i in range(s_len):
+                out = out.type(torch.LongTensor)
+                out, h = model.decoder(out, h, encoder_outputs)
+                out = torch.squeeze(model.output_layer(out))
+                out = torch.nn.functional.softmax(out, dim=1)
+                out = torch.argmax(out, dim=1)
+                result.append(out.numpy())
+            result = np.transpose(np.array(result))
 
-        out = (torch.ones(x.size(0)) * bos)
-        result = []
-        for i in range(s_len):
-            # seq2seq
-            out = out.type(torch.LongTensor).view(-1, 1)
-            out, h = model.decoder(out, h)
+        # seq2seq
+        else:
+            h, _ = model.encoder(x)
+            out = (torch.ones(x.size(0)) * bos)
+            result = []
+            for i in range(s_len):
+                out = out.type(torch.LongTensor).view(-1, 1)
+                out, h = model.decoder(out, h)
+                out = torch.squeeze(model.output_layer(out))
+                out = torch.nn.functional.softmax(out, dim=1)
+                out = torch.argmax(out, dim=1)
+                result.append(out.numpy())
+            result = np.transpose(np.array(result))
 
-            # # attention
-            # out = out.type(torch.LongTensor)
-            # out, h = model.decoder(out, h, encoder_outputs)
-
-            out = torch.squeeze(model.output_layer(out))
-            out = torch.nn.functional.softmax(out, dim=1)
-            out = torch.argmax(out, dim=1)
-            result.append(out.numpy())
-        result = np.transpose(np.array(result))
         for i in range(result.shape[0]):
             # sen1 = index2sentence(list(x[i]), idx2word)
             sen = index2sentence(list(result[i]), idx2word)
             r.append(' '.join(sen))
 
     # write result
-    filename_result = 'DATA/result/summary/attention/summary_' + str(epoch) + '.txt'
+    filename_result = 'DATA/result/summary/seq2seq/summary_' + str(epoch) + '.txt'
     with open(filename_result, 'w', encoding='utf-8') as f:
         f.write('\n'.join(r))
 
@@ -91,7 +75,7 @@ def test(config, epoch, model):
     score = rouge_score(config.gold_summaries, filename_result)
 
     # write rouge
-    filename_rouge = 'DATA/result/summary/attention/ROUGE_' + str(epoch) + '.txt'
+    filename_rouge = 'DATA/result/summary/seq2seq/ROUGE_' + str(epoch) + '.txt'
     write_rouge(filename_rouge, score)
 
     # print rouge
@@ -108,6 +92,25 @@ def test(config, epoch, model):
 
 if __name__ == '__main__':
     config = Config()
-    for epoch in range(EPOCH):
-        model = load_model(epoch)
-        test(config, epoch, model)
+    # input
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--batch_size', '-b', type=int, default=128, help='batch size for train')
+    parser.add_argument('--hidden_size', '-s', type=int, default=512, help='dimension of  code')
+    parser.add_argument('--epoch', '-e', type=int, default=20, help='number of training epochs')
+    parser.add_argument('--num_layers', '-n', type=int, default=2, help='number of gru layers')
+    parser.add_argument('--pre_train', '-p', action='store_true', default=False, help="load pre-train embedding")
+    parser.add_argument('--attention', '-a', action='store_true', default=False, help="whether to use attention")
+    # parser.add_argument('--devices', '-d', type=int, default=2, help='specify a gpu')
+    args = parser.parse_args()
+
+    # embeddings
+    if args.pre_train is True:
+        filename = 'DATA/data/glove_embeddings_300d.pt'
+        embeddings = load_embeddings(filename)
+    else:
+        embeddings = None
+
+    # test
+    for epoch in range(args.epoch):
+        model = load_model(embeddings, epoch, config, args)
+        test(config, epoch, model, args)

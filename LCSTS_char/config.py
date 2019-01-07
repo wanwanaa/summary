@@ -37,3 +37,8 @@ class Config():
 
         # gold summaries
         self.gold_summaries = 'DATA/result/gold/gold_summaries.txt'
+
+        # Hyper Parameters
+        self.VOCAB_SIZE = 4000
+        self.EMBEDDING_SIZE = 300
+        self.LR = 0.001
