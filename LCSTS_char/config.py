@@ -36,7 +36,7 @@ class Config():
         self.vocab_size = 4000
 
         # gold summaries
-        self.gold_summaries = 'DATA/result/gold/gold_summaries.txt'
+        self.gold_summaries = 'result/gold/gold_summaries.txt'
 
         # Hyper Parameters
         self.VOCAB_SIZE = 4000
