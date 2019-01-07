@@ -5,11 +5,39 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+import matplotlib.pyplot as plt
 from LCSTS_char.config import Config
 from LSTM.model import Encoder, Decoder, Seq2Seq, Attention, AttnDecoder, AttnSeq2Seq
-from LSTM.save_load import save_model, load_model
+from LSTM.save_load import save_model
 from LSTM.ROUGE import rouge_score, write_rouge
 from LCSTS_char.data_utils import index2sentence, load_data, load_embeddings
+
+
+# filename
+# save model
+filename_model = 'models/summary/'
+# result
+filename_result = 'result/summary/'
+# rouge
+filename_rouge = 'result/summary/ROUGE.txt'
+# initalization
+open(filename_rouge, 'w')
+# checkpoint
+filename_checkpoint = '../models/summary/'
+
+# plot
+train_loss = []
+valid_loss = []
+test_rouge = []
+
+
+def plot_result(train, valid, test):
+    x = np.linspace(0, len(train), len(train))
+    plt.plot(x, train, 'r', label='train loss')
+    plt.plot(x, valid, 'b', label='valid loss')
+    plt.plot(x, test, 'g',  label='ROUGE-1')
+
+    plt.show()
 
 
 def valid(config, epoch, model):
@@ -37,6 +65,7 @@ def valid(config, epoch, model):
         all_loss += loss.item()
         num += 1
     print('epoch:', epoch, '|valid_loss: %.4f' % (all_loss / num))
+    valid_loss.append(all_loss / num)
 
 
 def test(config, epoch, model, args):
@@ -87,7 +116,7 @@ def test(config, epoch, model, args):
                 out = out.type(torch.LongTensor).view(-1, 1)
                 out, h = model.decoder(out, h)
                 out = torch.squeeze(model.output_layer(out))
-                out = torch.nn.functional.softmax(out, dim=1)
+                out = F.softmax(out, dim=1)
                 out = torch.argmax(out, dim=1)
                 result.append(out.numpy())
             result = np.transpose(np.array(result))
@@ -97,15 +126,14 @@ def test(config, epoch, model, args):
             r.append(' '.join(sen))
 
         # write result
-        filename_result = 'DATA/result/summary/summary_' + str(epoch) + '.txt'
-        with open(filename_result, 'w', encoding='utf-8') as f:
+        filename_data = filename_result + 'summary_' + str(epoch) + '.txt'
+        with open(filename_data, 'w', encoding='utf-8') as f:
             f.write('\n'.join(r))
 
         # ROUGE
         score = rouge_score(config.gold_summaries, filename_result)
 
         # write rouge
-        filename_rouge = 'DATA/result/summary/ROUGE_' + str(epoch) + '.txt'
         write_rouge(filename_rouge, score)
 
         # print rouge
@@ -118,6 +146,8 @@ def test(config, epoch, model, args):
         print('epoch:', epoch, '|ROUGE-L f: %.4f' % score['rouge-l']['f'],
               ' p: %.4f' % score['rouge-l']['p'],
               ' r: %.4f' % score['rouge-l']['r'])
+
+        test_rouge.append(score['rouge-1']['f'])
 
 
 def train(args, config, model):
@@ -142,7 +172,7 @@ def train(args, config, model):
     # checkpoint
     if args.checkpoint != 0:
         start_epoch = args.checkpoint
-        filename = '../LSTM/models/summary/attention_v1/model_' + args.checkpoint + '.pkl'
+        filename = filename_checkpoint + 'model_' + args.checkpoint + '.pkl'
         model.load_state_dict(torch.load(filename))
 
     for e in range(start_epoch, args.epoch):
@@ -184,17 +214,18 @@ def train(args, config, model):
 
         # train loss
         print('epoch:', e, '|train_loss: %.4f' % (all_loss / num))
+        train_loss.append(all_loss / num)
 
         # save model
         if args.save_model is True:
-            filename = '../LSTM/models/summary/attention_v1/model_' + str(e) + '.pkl'
+            filename = filename_model + 'model_' + str(e) + '.pkl'
             save_model(model, filename)
 
         # valid
         valid(config, e, model)
 
         # test
-        # test(config, e, model, args)
+        test(config, e, model, args)
 
         # end time
         end = time.time()
@@ -204,8 +235,8 @@ def train(args, config, model):
 if __name__ == '__main__':
     # input
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batch_size', '-b', type=int, default=128, help='batch size for train')
-    parser.add_argument('--hidden_size', '-s', type=int, default=512, help='dimension of  code')
+    parser.add_argument('--batch_size', '-b', type=int, default=512, help='batch size for train')
+    parser.add_argument('--hidden_size', '-l', type=int, default=512, help='dimension of  code')
     parser.add_argument('--epoch', '-e', type=int, default=20, help='number of training epochs')
     parser.add_argument('--num_layers', '-n', type=int, default=2, help='number of gru layers')
     parser.add_argument('--checkpoint', '-c', type=int, default=0, help='number of checking model')
@@ -213,6 +244,7 @@ if __name__ == '__main__':
     parser.add_argument('--attention', '-a', action='store_true', default=False, help="whether to use attention")
     parser.add_argument('--save_model', '-m', action='store_true', default=False, help="whether to save model")
     # parser.add_argument('--devices', '-d', type=int, default=2, help='specify a gpu')
+    # parser.add_argument('--beam_size', '-s', type=int, default=2, help='size of beam search')
     args = parser.parse_args()
 
     # config
@@ -230,20 +262,20 @@ if __name__ == '__main__':
         # attention model
         if torch.cuda.is_available():
             encoder = Encoder(embeddings, config.VOCAB_SIZE, config.EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
-            # # v1
-            # attention = Attention(args.hidden_size).cuda()
-            # v2
-            attention = Attention(args.hidden_size, config.EMBEDDING_SIZE, config.seq_len).cuda()
+            # v1(model)
+            attention = Attention(args.hidden_size).cuda()
+            # # v2(model_attn)
+            # attention = Attention(args.hidden_size, config.EMBEDDING_SIZE, config.seq_len).cuda()
 
             decoder = AttnDecoder(attention, embeddings, config.VOCAB_SIZE, config.EMBEDDING_SIZE,
                                   args.hidden_size, config.summary_len, args.num_layers).cuda()
             seq2seq = AttnSeq2Seq(encoder, decoder, config.VOCAB_SIZE, args.hidden_size, config.summary_len, config.bos).cuda()
         else:
             encoder = Encoder(embeddings, config.VOCAB_SIZE, config.EMBEDDING_SIZE, args.hidden_size, args.num_layers)
-            # # v1
-            # attention = Attention(args.hidden_size).cuda()
-            # v2
-            attention = Attention(args.hidden_size, config.EMBEDDING_SIZE, config.seq_len)
+            # v1
+            attention = Attention(args.hidden_size).cuda()
+            # # v2
+            # attention = Attention(args.hidden_size, config.EMBEDDING_SIZE, config.seq_len)
             decoder = AttnDecoder(attention, embeddings, config.VOCAB_SIZE, config.EMBEDDING_SIZE,
                                   args.hidden_size, config.summary_len, args.num_layers)
             seq2seq = AttnSeq2Seq(encoder, decoder, config.VOCAB_SIZE, args.hidden_size, config.summary_len, config.bos)

@@ -8,6 +8,15 @@ from LSTM.save_load import load_model
 from LCSTS_char.data_utils import index2sentence, load_data, load_embeddings
 
 
+# filename
+# result
+filename_result = 'result/summary/'
+# rouge
+filename_rouge = 'result/summary/ROUGE.txt'
+# initalization
+open(filename_rouge, 'w')
+
+
 def test(config, epoch, model, args):
     # batch, dropout
     model = model.eval()
@@ -28,10 +37,10 @@ def test(config, epoch, model, args):
     s_len = config.summary_len
     r = []
     for batch in test:
-        x, y = batch
+        x, _ = batch
         if torch.cuda.is_available():
             x = x.cuda()
-            y = y.cuda()
+            # y = y.cuda()
         # model
         # attention
         if args.attention is True:
@@ -67,15 +76,14 @@ def test(config, epoch, model, args):
             r.append(' '.join(sen))
 
     # write result
-    filename_result = 'DATA/result/summary/seq2seq/summary_' + str(epoch) + '.txt'
-    with open(filename_result, 'w', encoding='utf-8') as f:
+    filename_data = filename_result + 'summary_' + str(epoch) + '.txt'
+    with open(filename_data, 'w', encoding='utf-8') as f:
         f.write('\n'.join(r))
 
     # ROUGE
     score = rouge_score(config.gold_summaries, filename_result)
 
     # write rouge
-    filename_rouge = 'DATA/result/summary/seq2seq/ROUGE_' + str(epoch) + '.txt'
     write_rouge(filename_rouge, score)
 
     # print rouge
@@ -105,7 +113,7 @@ if __name__ == '__main__':
 
     # embeddings
     if args.pre_train is True:
-        filename = 'DATA/data/glove_embeddings_300d.pt'
+        filename = config.filename_embeddings
         embeddings = load_embeddings(filename)
     else:
         embeddings = None

@@ -18,7 +18,7 @@ def load_model(embeddings, epoch, config, args):
         encoder = Encoder(embeddings, config.VOCAB_SIZE, config.EMBEDDING_SIZE, args.hidden_size, args.num_layers)
         decoder = Decoder(embeddings, config.VOCAB_SIZE, config.EMBEDDING_SIZE, args.hidden_size, args.num_layers)
         model = Seq2Seq(encoder, decoder, config.VOCAB_SIZE, args.hidden_size, args.num_layers)
-    filename = 'LSTM/models/summary/seq2seq/model_' + str(epoch) + '.pkl'
+    filename = 'models/summary/model_' + str(epoch) + '.pkl'
     model.load_state_dict(torch.load(filename, map_location='cpu'))
     return model
 
