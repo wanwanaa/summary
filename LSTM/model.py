@@ -4,19 +4,18 @@ import torch.nn.functional as F
 
 
 class Encoder(nn.Module):
-    def __init__(self, embeddings, vocab_size, embedding_dim, hidden_size, num_layers):
+    def __init__(self, embeds, embedding_dim, hidden_size, num_layers):
         super(Encoder, self).__init__()
-        self.embeddings = embeddings
-        self.vocab_size = vocab_size
+        self.embeds = embeds
         self.embedding_dim = embedding_dim
         self.hidden_size = hidden_size
         self.num_layers = num_layers
 
-        # embedding
-        if embeddings is None:
-            self.embeds = nn.Embedding(self.vocab_size, self.embedding_dim)
-        else:
-            self.embeds = nn.Embedding.from_pretrained(self.embeddings)
+        # # embedding
+        # if embeddings is None:
+        #     self.embeds = nn.Embedding(self.vocab_size, self.embedding_dim)
+        # else:
+        #     self.embeds = nn.Embedding.from_pretrained(self.embeddings)
 
         # encoder
         # input size(batch, time_step, embedding_dim)
@@ -65,21 +64,21 @@ class Attention(nn.Module):
 
 
 class AttnDecoder(nn.Module):
-    def __init__(self, attention, embeddings, vocab_size, embedding_dim, hidden_size, s_len, num_layers):
+    def __init__(self, attention, embeds, vocab_size, embedding_dim, hidden_size, s_len, num_layers):
         super(AttnDecoder, self).__init__()
         self.attention = attention
-        self.embeddings = embeddings
+        self.embeds = embeds
         self.vocab_size = vocab_size
         self.embedding_dim = embedding_dim
         self.hidden_size = hidden_size
         self.s_len = s_len
         self.num_layers = num_layers
 
-        # embedding
-        if embeddings is None:
-            self.embeds = nn.Embedding(self.vocab_size, self.embedding_dim)
-        else:
-            self.embeds = nn.Embedding.from_pretrained(self.embeddings)
+        # # embedding
+        # if embeddings is None:
+        #     self.embeds = nn.Embedding(self.vocab_size, self.embedding_dim)
+        # else:
+        #     self.embeds = nn.Embedding.from_pretrained(self.embeddings)
 
         # decoder
         self.decoder_gru = nn.GRU(self.embedding_dim+self.hidden_size,
@@ -100,19 +99,19 @@ class AttnDecoder(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, embeddings, vocab_size, embedding_dim, hidden_size, num_layers):
+    def __init__(self, embeds, vocab_size, embedding_dim, hidden_size, num_layers):
         super(Decoder, self).__init__()
-        self.embeddings = embeddings
+        self.embeds = embeds
         self.vocab_size = vocab_size
         self.embedding_dim = embedding_dim
         self.hidden_size = hidden_size
         self.num_layers = num_layers
 
-        # embedding
-        if embeddings is None:
-            self.embeds = nn.Embedding(self.vocab_size, self.embedding_dim)
-        else:
-            self.embeds = nn.Embedding.from_pretrained(self.embeddings)
+        # # embedding
+        # if embeddings is None:
+        #     self.embeds = nn.Embedding(self.vocab_size, self.embedding_dim)
+        # else:
+        #     self.embeds = nn.Embedding.from_pretrained(self.embeddings)
 
         # decoder
         self.decoder_gru = nn.GRU(self.embedding_dim,
@@ -195,3 +194,12 @@ class AttnSeq2Seq(nn.Module):
             result.append(self.output_layer(out).squeeze())
         outputs = torch.stack(result)
         return torch.transpose(outputs, 0, 1)
+
+
+# make encode and decode embedding identically
+def get_embeds(embeddings, vocab_size, embedding_size):
+    if embeddings is None:
+        embeds = nn.Embedding(vocab_size, embedding_size)
+    else:
+        embeds = nn.Embedding.from_pretrained(embeddings)
+    return embeds
