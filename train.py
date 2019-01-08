@@ -240,7 +240,7 @@ def train(args, config, model):
 if __name__ == '__main__':
     # input
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batch_size', '-b', type=int, default=64, help='batch size for train')
+    parser.add_argument('--batch_size', '-b', type=int, default=512, help='batch size for train')
     parser.add_argument('--hidden_size', '-l', type=int, default=512, help='dimension of  code')
     parser.add_argument('--epoch', '-e', type=int, default=20, help='number of training epochs')
     parser.add_argument('--num_layers', '-n', type=int, default=2, help='number of gru layers')
