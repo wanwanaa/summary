@@ -6,8 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from LCSTS_char.config import Config
-from LSTM.model import Encoder, Decoder, Seq2Seq, Attention, AttnDecoder, AttnSeq2Seq
-from LSTM.model import get_embeds
+from LSTM.model import Encoder, Decoder, Seq2Seq, Attention, AttnDecoder, AttnSeq2Seq, Embeds
 from LSTM.save_load import save_model
 from LSTM.ROUGE import rouge_score, write_rouge
 from LCSTS_char.data_utils import index2sentence, load_data, load_embeddings
@@ -15,15 +14,15 @@ from LCSTS_char.data_utils import index2sentence, load_data, load_embeddings
 
 # filename
 # save model
-filename_model = 'models/summary/'
+filename_model = 'models/summary/glove/'
 # result
-filename_result = 'result/summary/'
+filename_result = 'result/summary/glove/'
 # rouge
 filename_rouge = 'result/summary/ROUGE.txt'
 # initalization
 open(filename_rouge, 'w')
 # checkpoint
-filename_checkpoint = 'models/summary/'
+filename_checkpoint = 'models/summary/glove/'
 
 # plot
 train_loss = []
@@ -240,7 +239,7 @@ def train(args, config, model):
 if __name__ == '__main__':
     # input
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batch_size', '-b', type=int, default=512, help='batch size for train')
+    parser.add_argument('--batch_size', '-b', type=int, default=64, help='batch size for train')
     parser.add_argument('--hidden_size', '-l', type=int, default=512, help='dimension of  code')
     parser.add_argument('--epoch', '-e', type=int, default=20, help='number of training epochs')
     parser.add_argument('--num_layers', '-n', type=int, default=2, help='number of gru layers')
@@ -261,12 +260,12 @@ if __name__ == '__main__':
         embeddings = load_embeddings(filename)
     else:
         embeddings = None
-    embeds = get_embeds(embeddings, config.VOCAB_SIZE, config.EMBEDDING_SIZE)
 
     # model
     if args.attention is True:
         # attention model
         if torch.cuda.is_available():
+            embeds = Embeds(embeddings, config.VOCAB_SIZE, config.EMBEDDING_SIZE).cuda()
             encoder = Encoder(embeds, config.EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
             # v1(model)
             attention = Attention(args.hidden_size).cuda()
@@ -277,6 +276,7 @@ if __name__ == '__main__':
                                   args.hidden_size, config.summary_len, args.num_layers).cuda()
             seq2seq = AttnSeq2Seq(encoder, decoder, config.VOCAB_SIZE, args.hidden_size, config.summary_len, config.bos).cuda()
         else:
+            embeds = Embeds(embeddings, config.VOCAB_SIZE, config.EMBEDDING_SIZE)
             encoder = Encoder(embeds, config.EMBEDDING_SIZE, args.hidden_size, args.num_layers)
             # v1
             attention = Attention(args.hidden_size)
@@ -288,10 +288,12 @@ if __name__ == '__main__':
     else:
         # seq2seq model
         if torch.cuda.is_available():
+            embeds = Embeds(embeddings, config.VOCAB_SIZE, config.EMBEDDING_SIZE).cuda()
             encoder = Encoder(embeds, config.EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
             decoder = Decoder(embeds, config.VOCAB_SIZE, config.EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
             seq2seq = Seq2Seq(encoder, decoder, config.VOCAB_SIZE, args.hidden_size, config.bos).cuda()
         else:
+            embeds = Embeds(embeddings, config.VOCAB_SIZE, config.EMBEDDING_SIZE)
             encoder = Encoder(embeds, config.EMBEDDING_SIZE, args.hidden_size, args.num_layers)
             decoder = Decoder(embeds, config.VOCAB_SIZE, config.EMBEDDING_SIZE, args.hidden_size, args.num_layers)
             seq2seq = Seq2Seq(encoder, decoder, config.VOCAB_SIZE, args.hidden_size, config.bos)

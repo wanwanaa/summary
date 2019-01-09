@@ -196,10 +196,21 @@ class AttnSeq2Seq(nn.Module):
         return torch.transpose(outputs, 0, 1)
 
 
-# make encode and decode embedding identically
-def get_embeds(embeddings, vocab_size, embedding_size):
-    if embeddings is None:
-        embeds = nn.Embedding(vocab_size, embedding_size)
-    else:
-        embeds = nn.Embedding.from_pretrained(embeddings)
-    return embeds
+# # make encode and decode embedding identically
+# def get_embeds(embeddings, vocab_size, embedding_size):
+#     if embeddings is None:
+#         embeds = nn.Embedding(vocab_size, embedding_size)
+#     else:
+#         embeds = nn.Embedding.from_pretrained(embeddings)
+#     return embeds
+
+class Embeds(nn.Module):
+    def __init__(self, embeddings, vocab_size, embedding_size):
+        super(Embeds, self).__init__()
+        if embeddings is None:
+            self.embeds = nn.Embedding(vocab_size, embedding_size)
+        else:
+            self.embeds = nn.Embedding.from_pretrained(embeddings)
+
+    def forward(self, x):
+        return self.embeds(x)

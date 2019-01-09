@@ -19,7 +19,7 @@ open(filename_rouge, 'w')
 
 def test(config, epoch, model, args):
     # batch, dropout
-    # model = model.eval()
+    model = model.eval()
 
     # filename
     filename_test_text = config.filename_trimmed_test_text
@@ -81,7 +81,7 @@ def test(config, epoch, model, args):
         f.write('\n'.join(r))
 
     # ROUGE
-    score = rouge_score(config.gold_summaries, filename_data)
+    score = rouge_score(config.gold_summaries, filename_result)
 
     # write rouge
     write_rouge(filename_rouge, score)
