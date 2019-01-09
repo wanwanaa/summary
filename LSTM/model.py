@@ -57,7 +57,7 @@ class Attention(nn.Module):
 
         # attn_weights (batch, 1, time_step)
         # (batch. time_step, 1) -> (batch, 1, time_step)
-        attn_weights = F.softmax(self.attn(torch.cat((hidden, encoder_out), dim=2)).squeeze()).unsqueeze(1)
+        attn_weights = F.softmax(self.attn(torch.cat((hidden, encoder_out), dim=2)).squeeze(2)).unsqueeze(1)
 
         context = torch.bmm(attn_weights, encoder_out) # (batch, 1, hidden_size)
         return context
@@ -203,6 +203,7 @@ def get_embeds(embeddings, vocab_size, embedding_size):
     else:
         embeds = nn.Embedding.from_pretrained(embeddings)
     return embeds
+
 
 # class Embeds(nn.Module):
 #     def __init__(self, embeddings, vocab_size, embedding_size):

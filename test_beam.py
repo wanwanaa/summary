@@ -57,7 +57,8 @@ def test(config, epoch, model, args):
 
     bos = config.bos
     s_len = config.summary_len
-    r = []
+    # r = []
+    result = []
     for batch in test:
         x, _ = batch
         if torch.cuda.is_available():
@@ -68,14 +69,16 @@ def test(config, epoch, model, args):
         if args.attention is True:
             h, encoder_outputs = model.encoder(x)
             sequence = [[[bos], 0.0]]
-            result = []
+            # result = []
             for i in range(s_len):
                 candidate = []
                 for j in range(len(sequence)):
-                    out = sequence[j][0][-1].type(torch.LongTensor)
+                    out = torch.tensor(sequence[j][0][-1]).type(torch.LongTensor).unsqueeze(0)
+                    # print(out)
+                    # print(out.size())
                     out, h = model.decoder(out, h, encoder_outputs)
                     out = torch.squeeze(model.output_layer(out))
-                    out = torch.nn.functional.softmax(out, dim=1)
+                    out = torch.nn.functional.softmax(out, dim=0)
                     pre_path = sequence[j][0]
                     pre_prob = sequence[j][1]
                     for k in range(args.beam_size):
@@ -87,7 +90,8 @@ def test(config, epoch, model, args):
                 sequence = []
                 for w in range(args.beam_size):
                     sequence.append(candidate.pop(max_prob(candidate)))
-            sen = index2sentence(sequence[max_prob(sequence)][1], idx2word)
+            sequence[max_prob(sequence)][0].pop(0)
+            sen = index2sentence(sequence[max_prob(sequence)][0], idx2word)
             result.append(' '.join(sen))
 
         # seq2seq
@@ -104,18 +108,18 @@ def test(config, epoch, model, args):
                 result.append(out.numpy())
             result = np.transpose(np.array(result))
 
-        for i in range(result.shape[0]):
-            # sen1 = index2sentence(list(x[i]), idx2word)
-            sen = index2sentence(list(result[i]), idx2word)
-            r.append(' '.join(sen))
+        # for i in range(result.shape[0]):
+        #     # sen1 = index2sentence(list(x[i]), idx2word)
+        #     sen = index2sentence(list(result[i]), idx2word)
+        #     r.append(' '.join(sen))
 
     # write result
     filename_data = filename_result + 'summary_' + str(epoch) + '.txt'
     with open(filename_data, 'w', encoding='utf-8') as f:
-        f.write('\n'.join(r))
+        f.write('\n'.join(result))
 
     # ROUGE
-    score = rouge_score(config.gold_summaries, filename_result)
+    score = rouge_score(config.gold_summaries, filename_data)
 
     # write rouge
     write_rouge(filename_rouge, score)
