@@ -1,4 +1,5 @@
 import pickle
+import math
 import torch
 import argparse
 import numpy as np
@@ -17,6 +18,27 @@ filename_rouge = 'result/summary/ROUGE.txt'
 open(filename_rouge, 'w')
 
 
+# beam search
+def maximum(data):
+    # position
+    p = torch.argmax(data).item()
+    # value
+    v = data[p].item()
+    data[p] = torch.tensor(0.0)
+    return p, v, data
+
+
+def max_prob(candidate):
+    v = 0
+    p = 0 # position of max
+    for i in range(len(candidate)):
+        if candidate[i][1] > v:
+            v = candidate[i][1]
+            p = i
+    return p
+# beam search
+
+
 def test(config, epoch, model, args):
     # batch, dropout
     model = model.eval()
@@ -27,7 +49,7 @@ def test(config, epoch, model, args):
     filename_idx2word = config.filename_index
 
     # data
-    test = load_data(filename_test_text, filename_test_summary, args.batch_size, shuffle=False, num_works=2)
+    test = load_data(filename_test_text, filename_test_summary, 1, shuffle=False, num_works=2)
 
     # idx2word
     f = open(filename_idx2word, 'rb')
@@ -45,16 +67,28 @@ def test(config, epoch, model, args):
         # attention
         if args.attention is True:
             h, encoder_outputs = model.encoder(x)
-            out = (torch.ones(x.size(0)) * bos)
+            sequence = [[[bos], 0.0]]
             result = []
             for i in range(s_len):
-                out = out.type(torch.LongTensor)
-                out, h = model.decoder(out, h, encoder_outputs)
-                out = torch.squeeze(model.output_layer(out))
-                out = torch.nn.functional.softmax(out, dim=1)
-                out = torch.argmax(out, dim=1)
-                result.append(out.numpy())
-            result = np.transpose(np.array(result))
+                candidate = []
+                for j in range(len(sequence)):
+                    out = sequence[j][0][-1].type(torch.LongTensor)
+                    out, h = model.decoder(out, h, encoder_outputs)
+                    out = torch.squeeze(model.output_layer(out))
+                    out = torch.nn.functional.softmax(out, dim=1)
+                    pre_path = sequence[j][0]
+                    pre_prob = sequence[j][1]
+                    for k in range(args.beam_size):
+                        p, v, out = maximum(out)
+                        path = pre_path.copy()
+                        path.append(p)
+                        prob = math.log(v) + pre_prob
+                        candidate.append([path, prob])
+                sequence = []
+                for w in range(args.beam_size):
+                    sequence.append(candidate.pop(max_prob(candidate)))
+            sen = index2sentence(sequence[max_prob(sequence)][1], idx2word)
+            result.append(' '.join(sen))
 
         # seq2seq
         else:
@@ -106,6 +140,7 @@ if __name__ == '__main__':
     parser.add_argument('--hidden_size', '-s', type=int, default=512, help='dimension of  code')
     parser.add_argument('--epoch', '-e', type=int, default=20, help='number of training epochs')
     parser.add_argument('--num_layers', '-n', type=int, default=2, help='number of gru layers')
+    parser.add_argument('--beam_size', '-z', type=int, default=2, help='number of beam search (using argmax when beam size=1)')
     parser.add_argument('--pre_train', '-p', action='store_true', default=False, help="load pre-train embedding")
     parser.add_argument('--attention', '-a', action='store_true', default=False, help="whether to use attention")
     # parser.add_argument('--devices', '-d', type=int, default=2, help='specify a gpu')

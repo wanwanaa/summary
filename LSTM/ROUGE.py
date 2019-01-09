@@ -18,6 +18,6 @@ def write_rouge(filename, score):
               + str(score['rouge-l']['p']) + ' r ' \
               + str(score['rouge-l']['r'])
     rouge = [rouge_1, rouge_2, rouge_l]
-    with open(filename, 'a+') as f:
-        f.write('\n')
+    with open(filename, 'a') as f:
         f.write('\n'.join(rouge))
+        f.write('\n')

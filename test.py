@@ -6,7 +6,7 @@ from LCSTS_char.config import Config
 from LSTM.ROUGE import rouge_score, write_rouge
 from LSTM.save_load import load_model
 from LCSTS_char.data_utils import index2sentence, load_data, load_embeddings
-
+import pathlib
 
 # filename
 # result
@@ -14,7 +14,7 @@ filename_result = 'result/summary/'
 # rouge
 filename_rouge = 'result/summary/ROUGE.txt'
 # initalization
-open(filename_rouge, 'w')
+pathlib.Path(filename_rouge).touch()
 
 
 def test(config, epoch, model, args):
