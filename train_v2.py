@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from LCSTS_char.config import Config
-from LSTM.model import Encoder, Decoder, Seq2Seq, Attention, AttnDecoder, AttnSeq2Seq, Embeds
+from LSTM.model_v2 import Encoder, Decoder, Seq2Seq, Attention, AttnDecoder, AttnSeq2Seq, Embeds
 from LSTM.save_load import save_model
 from LSTM.ROUGE import rouge_score, write_rouge
 from LCSTS_char.data_utils import index2sentence, load_data, load_embeddings
@@ -225,20 +225,17 @@ def train(args, config, model):
             filename = filename_model + 'model_' + str(e) + '.pkl'
             save_model(model, filename)
 
-        # memory
-        torch.cuda.memory_allocated()
+        torch.cuda.empty_cache()
 
         # valid
         valid(config, e, model)
 
-        # memory
-        torch.cuda.memory_allocated()
+        torch.cuda.empty_cache()
 
         # test
         test(config, e, model, args)
 
-        # memory
-        torch.cuda.memory_allocated()
+        torch.cuda.empty_cache()
 
         # end time
         end = time.time()
@@ -248,7 +245,7 @@ def train(args, config, model):
 if __name__ == '__main__':
     # input
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batch_size', '-b', type=int, default=512, help='batch size for train')
+    parser.add_argument('--batch_size', '-b', type=int, default=256, help='batch size for train')
     parser.add_argument('--hidden_size', '-l', type=int, default=512, help='dimension of code')
     parser.add_argument('--epoch', '-e', type=int, default=20, help='number of training epochs')
     parser.add_argument('--num_layers', '-n', type=int, default=2, help='number of gru layers')
@@ -276,10 +273,10 @@ if __name__ == '__main__':
         if torch.cuda.is_available():
             embeds = Embeds(embeddings, config.VOCAB_SIZE, config.EMBEDDING_SIZE).cuda()
             encoder = Encoder(embeds, config.EMBEDDING_SIZE, args.hidden_size, args.num_layers).cuda()
-            # v1(model)
-            attention = Attention(args.hidden_size).cuda()
-            # # v2(model_attn)
-            # attention = Attention(args.hidden_size, config.EMBEDDING_SIZE, config.seq_len).cuda()
+            # # v1(model)
+            # attention = Attention(args.hidden_size).cuda()
+            # v2(model_attn)
+            attention = Attention(args.hidden_size, config.EMBEDDING_SIZE, config.seq_len).cuda()
 
             decoder = AttnDecoder(attention, embeds, config.VOCAB_SIZE, config.EMBEDDING_SIZE,
                                   args.hidden_size, config.summary_len, args.num_layers).cuda()
@@ -287,10 +284,10 @@ if __name__ == '__main__':
         else:
             embeds = Embeds(embeddings, config.VOCAB_SIZE, config.EMBEDDING_SIZE)
             encoder = Encoder(embeds, config.EMBEDDING_SIZE, args.hidden_size, args.num_layers)
-            # v1
-            attention = Attention(args.hidden_size)
-            # # v2
-            # attention = Attention(args.hidden_size, config.EMBEDDING_SIZE, config.seq_len)
+            # # v1
+            # attention = Attention(args.hidden_size)
+            # v2
+            attention = Attention(args.hidden_size, config.EMBEDDING_SIZE, config.seq_len)
             decoder = AttnDecoder(attention, embeds, config.VOCAB_SIZE, config.EMBEDDING_SIZE,
                                   args.hidden_size, config.summary_len, args.num_layers)
             seq2seq = AttnSeq2Seq(encoder, decoder, config.VOCAB_SIZE, args.hidden_size, config.summary_len, config.bos)

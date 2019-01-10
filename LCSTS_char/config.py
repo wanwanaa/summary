@@ -7,8 +7,8 @@ class Config():
 
         # glove
         self.dim = 300
-        # self.filename_glove = 'DATA/glove.6B/glove.6B.{}d.txt'.format(self.dim)
-        self.filename_glove = 'DATA/glove/vectors.txt'
+        self.filename_glove = 'DATA/glove.6B/glove.6B.{}d.txt'.format(self.dim)
+        # self.filename_glove = 'DATA/glove/vectors.txt'
 
         # trimmed data
         self.filename_trimmed_train_text = 'DATA/data/train_text.pt'

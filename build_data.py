@@ -76,11 +76,11 @@ if __name__ == '__main__':
     # write_gold_summaries(datasets, config.gold_summaries)
 
     # search word in GloVe
-    # train, train_summary = get_datasets_train(config.filename_train)
-    # vocab = get_vocab(train)
-    # word2idx = word2index(vocab, config.vocab_size)
-    # idx2word = index2word(vocab, config.vocab_size)
-    # get_embeddings(config.filename_glove, config.filename_embeddings, word2idx, config.vocab_size, config.dim)
+    train, train_summary = get_datasets_train(config.filename_train)
+    vocab = get_vocab(train)
+    word2idx = word2index(vocab, config.vocab_size)
+    idx2word = index2word(vocab, config.vocab_size)
+    get_embeddings(config.filename_glove, config.filename_embeddings, word2idx, config.vocab_size, config.dim)
 
     # # get train.txt for training GloVe
     # text, summary = get_datasets_train(config.filename_train)

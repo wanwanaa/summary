@@ -19,7 +19,7 @@ pathlib.Path(filename_rouge).touch()
 
 def test(config, epoch, model, args):
     # batch, dropout
-    # model = model.eval()
+    model = model.eval()
 
     # filename
     filename_test_text = config.filename_trimmed_test_text
@@ -104,7 +104,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size', '-b', type=int, default=128, help='batch size for train')
     parser.add_argument('--hidden_size', '-s', type=int, default=512, help='dimension of  code')
-    parser.add_argument('--epoch', '-e', type=int, default=20, help='number of training epochs')
+    parser.add_argument('--epoch', '-e', type=int, default=18, help='number of training epochs')
     parser.add_argument('--num_layers', '-n', type=int, default=2, help='number of gru layers')
     parser.add_argument('--pre_train', '-p', action='store_true', default=False, help="load pre-train embedding")
     parser.add_argument('--attention', '-a', action='store_true', default=False, help="whether to use attention")
