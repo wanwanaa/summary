@@ -24,8 +24,7 @@ class Encoder(nn.Module):
                                   self.hidden_size,
                                   batch_first=True,
                                   bidirectional=True,
-                                  num_layers=self.num_layers,
-                                  dropout=0.5)
+                                  num_layers=self.num_layers)
 
     def forward(self, x):
         e = self.embeds(x)
@@ -39,6 +38,8 @@ class Encoder(nn.Module):
 
         # h (n_layers, time_step, hidden_size)
         h = h[:self.num_layers]
+        # h = h[:self.num_layers] + h[self.num_layers:]
+        # print('h:', h.size())
         return h, out
 
 
@@ -60,7 +61,7 @@ class Attention(nn.Module):
         attn_weights = F.softmax(self.attn(torch.cat((hidden, encoder_out), dim=2)).squeeze(2)).unsqueeze(1)
 
         context = torch.bmm(attn_weights, encoder_out) # (batch, 1, hidden_size)
-        return context
+        return attn_weights, context
 
 
 class AttnDecoder(nn.Module):
@@ -74,28 +75,21 @@ class AttnDecoder(nn.Module):
         self.s_len = s_len
         self.num_layers = num_layers
 
-        # # embedding
-        # if embeddings is None:
-        #     self.embeds = nn.Embedding(self.vocab_size, self.embedding_dim)
-        # else:
-        #     self.embeds = nn.Embedding.from_pretrained(self.embeddings)
-
         # decoder
         self.decoder_gru = nn.GRU(self.embedding_dim+self.hidden_size,
                                   self.hidden_size,
                                   batch_first=True,
-                                  num_layers=num_layers,
-                                  dropout=0.5)
+                                  num_layers=num_layers)
         self.decoder_vocab = nn.Linear(self.hidden_size, self.vocab_size)
 
     def forward(self, x, h, encoder_output):
         e = self.embeds(x).unsqueeze(1)
-        context = self.attention(h, encoder_output)
+        attn_weight, context = self.attention(h, encoder_output)
         # print('e:', e.size())
         # print('context:', context.size())
         inputs = torch.cat((e, context), dim=2)
         out, h = self.decoder_gru(inputs, h)
-        return out, h
+        return attn_weight, context, out, h
 
 
 class Decoder(nn.Module):
@@ -106,12 +100,6 @@ class Decoder(nn.Module):
         self.embedding_dim = embedding_dim
         self.hidden_size = hidden_size
         self.num_layers = num_layers
-
-        # # embedding
-        # if embeddings is None:
-        #     self.embeds = nn.Embedding(self.vocab_size, self.embedding_dim)
-        # else:
-        #     self.embeds = nn.Embedding.from_pretrained(self.embeddings)
 
         # decoder
         self.decoder_gru = nn.GRU(self.embedding_dim,
@@ -160,14 +148,39 @@ class Seq2Seq(nn.Module):
         return out
 
 
+# pointer-generator
+class Pointer(nn.Module):
+    def __init__(self, embeds, embedding_size, hidden_size):
+        super(Pointer, self).__init__()
+        self.embedding_size = embedding_size
+        self.hidden_size = hidden_size
+        self.embeds = embeds
+
+        # prob
+        self.p_gen = nn.Linear(embedding_size+hidden_size*2, 1)
+
+    def forward(self, context, h, x):
+        # context (batch, hidden_size)
+        # h (batch, hidden_size)
+        # x (batch, embedding_size)
+        x = self.embeds(x)
+        context = context.squeeze()
+        # print('context: ', context.size())
+        # print('h:', h[-1].size())
+        # print('x:', x.size())
+        prob = self.p_gen(torch.cat((context, h[-1], x), dim=1))  # (batch, 1)
+        return F.sigmoid(prob)
+
+
 class AttnSeq2Seq(nn.Module):
-    def __init__(self, encoder, decoder, vocab_size, hidden_size, s_len, bos):
+    def __init__(self, encoder, decoder, vocab_size, hidden_size, s_len, bos, pointer):
         super(AttnSeq2Seq, self).__init__()
         self.encoder = encoder
         self.decoder = decoder
         self.vocab_size = vocab_size
         self.hidden_size = hidden_size
         self.s_len = s_len
+        self.pointer = pointer
 
         # <bos>
         self.bos = bos
@@ -185,24 +198,39 @@ class AttnSeq2Seq(nn.Module):
         x = torch.cat((start, x), dim=1)
         return x[:, :-1]
 
+    def final_distribution(self, attn_weight, x, gen, prob):
+        if torch.cuda.is_available():
+            output = torch.zeros((x.size(0), self.vocab_size)).type(torch.cuda.FloatTensor)
+        else:
+            output = torch.zeros((x.size(0), self.vocab_size)).type(torch.FloatTensor)
+
+        # add generator probabilities to output
+        gen = F.softmax(gen, dim=1)  # (batch, vocab_size)
+        output[:, :self.vocab_size] = prob * gen
+
+        # add pointer probabilities to output
+        # ptr (batch, t_len)
+        ptr = attn_weight.squeeze()
+        # print('ptr:', ptr.size())
+        # print('x:', x.size())
+        output.scatter_add_(1, x, (1-prob) * ptr)
+        return output
+
     def forward(self, x, y):
         h, encoder_out = self.encoder(x)
         y = self.convert(y)
         result = []
         for i in range(self.s_len):
-            out, h = self.decoder(y[:, i], h, encoder_out)
-            result.append(self.output_layer(out).squeeze())
+            attn_weights, context, out, h = self.decoder(y[:, i], h, encoder_out)
+            gen = self.output_layer(out).squeeze()
+            if self.pointer:
+                prob = self.pointer(context, h, y[:, i])
+                final = self.final_distribution(attn_weights, x, gen, prob)
+            else:
+                final = gen
+            result.append(torch.log(final))
         outputs = torch.stack(result)
         return torch.transpose(outputs, 0, 1)
-
-
-# # make encode and decode embedding identically
-# def get_embeds(embeddings, vocab_size, embedding_size):
-#     if embeddings is None:
-#         embeds = nn.Embedding(vocab_size, embedding_size)
-#     else:
-#         embeds = nn.Embedding.from_pretrained(embeddings)
-#     return embeds
 
 
 class Embeds(nn.Module):

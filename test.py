@@ -43,7 +43,7 @@ def test(config, epoch, model, args):
             # y = y.cuda()
         # model
         # attention
-        if args.attention is True:
+        if args.attention:
             h, encoder_outputs = model.encoder(x)
             out = (torch.ones(x.size(0)) * bos)
             result = []
@@ -104,15 +104,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size', '-b', type=int, default=128, help='batch size for train')
     parser.add_argument('--hidden_size', '-s', type=int, default=512, help='dimension of  code')
-    parser.add_argument('--epoch', '-e', type=int, default=18, help='number of training epochs')
+    parser.add_argument('--epoch', '-e', type=int, default=19, help='number of training epochs')
     parser.add_argument('--num_layers', '-n', type=int, default=2, help='number of gru layers')
-    parser.add_argument('--pre_train', '-p', action='store_true', default=False, help="load pre-train embedding")
     parser.add_argument('--attention', '-a', action='store_true', default=False, help="whether to use attention")
+    parser.add_argument('--pre_train', '-p', action='store_true', default=False, help="load pre-train embedding")
     # parser.add_argument('--devices', '-d', type=int, default=2, help='specify a gpu')
     args = parser.parse_args()
 
     # embeddings
-    if args.pre_train is True:
+    if args.pre_train:
         filename = config.filename_embeddings
         embeddings = load_embeddings(filename)
     else:

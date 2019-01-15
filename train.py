@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from LCSTS_char.config import Config
-from LSTM.model import Encoder, Decoder, Seq2Seq, Attention, AttnDecoder, AttnSeq2Seq, Embeds
+from LSTM.model import Encoder, Decoder, Seq2Seq, Attention, AttnDecoder, AttnSeq2Seq, Embeds, Pointer
 from LSTM.save_load import save_model
 from LSTM.ROUGE import rouge_score, write_rouge
 from LCSTS_char.data_utils import index2sentence, load_data, load_embeddings
@@ -169,7 +169,7 @@ def train(args, config, model):
 
     # loss
     optim = torch.optim.Adam(model.parameters(), lr=config.LR)
-    loss_func = nn.CrossEntropyLoss()
+    loss_func = nn.NLLLoss()
 
     start_epoch = 0
     # loading model
@@ -226,19 +226,19 @@ def train(args, config, model):
             save_model(model, filename)
 
         # memory
-        torch.cuda.memory_allocated()
+        torch.cuda.empty_cache()
 
         # valid
-        valid(config, e, model)
+        # valid(config, e, model)
 
         # memory
-        torch.cuda.memory_allocated()
+        torch.cuda.empty_cache()
 
         # test
-        test(config, e, model, args)
+        # test(config, e, model, args)
 
         # memory
-        torch.cuda.memory_allocated()
+        torch.cuda.empty_cache()
 
         # end time
         end = time.time()
@@ -248,14 +248,16 @@ def train(args, config, model):
 if __name__ == '__main__':
     # input
     parser = argparse.ArgumentParser()
-    parser.add_argument('--batch_size', '-b', type=int, default=512, help='batch size for train')
+    parser.add_argument('--batch_size', '-b', type=int, default=64, help='batch size for train')
     parser.add_argument('--hidden_size', '-l', type=int, default=512, help='dimension of code')
     parser.add_argument('--epoch', '-e', type=int, default=20, help='number of training epochs')
     parser.add_argument('--num_layers', '-n', type=int, default=2, help='number of gru layers')
+    parser.add_argument('-seed', '-s', type=int, default=1234, help="Random seed")
     parser.add_argument('--load_model', '-c', type=int, default=0, help='number of loading model')
     parser.add_argument('--pre_train', '-p', action='store_true', default=False, help="load pre-train embedding")
     parser.add_argument('--attention', '-a', action='store_true', default=False, help="whether to use attention")
     parser.add_argument('--save_model', '-m', action='store_true', default=False, help="whether to save model")
+    parser.add_argument('--point', '-g', action='store_true', default=False, help="pointer-generator")
     # parser.add_argument('--devices', '-d', type=int, default=2, help='specify a gpu')
     # parser.add_argument('--beam_size', '-s', type=int, default=2, help='size of beam search')
     args = parser.parse_args()
@@ -263,12 +265,19 @@ if __name__ == '__main__':
     # config
     config = Config()
 
+    torch.manual_seed(args.seed)
+
     # embedding
     if args.pre_train:
         filename = config.filename_embeddings
         embeddings = load_embeddings(filename)
     else:
         embeddings = None
+
+    ######
+    args.attention = True
+    args.point = True
+    ######
 
     # model
     if args.attention:
@@ -283,7 +292,13 @@ if __name__ == '__main__':
 
             decoder = AttnDecoder(attention, embeds, config.VOCAB_SIZE, config.EMBEDDING_SIZE,
                                   args.hidden_size, config.summary_len, args.num_layers).cuda()
-            seq2seq = AttnSeq2Seq(encoder, decoder, config.VOCAB_SIZE, args.hidden_size, config.summary_len, config.bos).cuda()
+            # pointer-generator
+            if args.point:
+                pointer = Pointer(embeds, config.EMBEDDING_SIZE, args.hidden_size)
+            else:
+                pointer = None
+            seq2seq = AttnSeq2Seq(encoder, decoder, config.VOCAB_SIZE, args.hidden_size, config.summary_len,
+                                  config.bos, pointer).cuda()
         else:
             embeds = Embeds(embeddings, config.VOCAB_SIZE, config.EMBEDDING_SIZE)
             encoder = Encoder(embeds, config.EMBEDDING_SIZE, args.hidden_size, args.num_layers)
@@ -293,7 +308,13 @@ if __name__ == '__main__':
             # attention = Attention(args.hidden_size, config.EMBEDDING_SIZE, config.seq_len)
             decoder = AttnDecoder(attention, embeds, config.VOCAB_SIZE, config.EMBEDDING_SIZE,
                                   args.hidden_size, config.summary_len, args.num_layers)
-            seq2seq = AttnSeq2Seq(encoder, decoder, config.VOCAB_SIZE, args.hidden_size, config.summary_len, config.bos)
+            # pointer-generator
+            if args.point:
+                pointer = Pointer(embeds, config.EMBEDDING_SIZE, args.hidden_size)
+            else:
+                pointer = None
+            seq2seq = AttnSeq2Seq(encoder, decoder, config.VOCAB_SIZE, args.hidden_size, config.summary_len,
+                                  config.bos, pointer)
     else:
         # seq2seq model
         if torch.cuda.is_available():
