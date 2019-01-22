@@ -49,10 +49,17 @@ def test(config, epoch, model, args):
             result = []
             for i in range(s_len):
                 out = out.type(torch.LongTensor)
-                out, h = model.decoder(out, h, encoder_outputs)
-                out = torch.squeeze(model.output_layer(out))
-                out = torch.nn.functional.softmax(out, dim=1)
-                out = torch.argmax(out, dim=1)
+                y = out
+                cover_vector = torch.zeros((x.size(0), 1, 114)).type(torch.FloatTensor)
+                attn_weights, context, out, h = model.decoder(out, h, encoder_outputs, cover_vector, True)
+                gen = torch.squeeze(model.output_layer(out))
+                # gen = torch.nn.functional.softmax(out, dim=1)
+                if args.point:
+                    prob = model.pointer(context, h, y)
+                    final = model.final_distribution(attn_weights, x, gen, prob)
+                else:
+                    final = torch.nn.functional.softmax(gen, dim=1)
+                out = torch.argmax(final, dim=1)
                 result.append(out.numpy())
             result = np.transpose(np.array(result))
 
@@ -104,10 +111,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size', '-b', type=int, default=128, help='batch size for train')
     parser.add_argument('--hidden_size', '-s', type=int, default=512, help='dimension of  code')
-    parser.add_argument('--epoch', '-e', type=int, default=19, help='number of training epochs')
+    parser.add_argument('--epoch', '-e', type=int, default=20, help='number of training epochs')
     parser.add_argument('--num_layers', '-n', type=int, default=2, help='number of gru layers')
     parser.add_argument('--attention', '-a', action='store_true', default=False, help="whether to use attention")
     parser.add_argument('--pre_train', '-p', action='store_true', default=False, help="load pre-train embedding")
+    parser.add_argument('--point', '-g', action='store_true', default=False, help="pointer-generator")
     # parser.add_argument('--devices', '-d', type=int, default=2, help='specify a gpu')
     args = parser.parse_args()
 

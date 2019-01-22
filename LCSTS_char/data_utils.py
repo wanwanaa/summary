@@ -175,9 +175,4 @@ def write_train(text, summary):
         result.append(' '.join(list(line)))
     with open('DATA/data/train.txt', 'w', encoding='utf-8') as f:
         f.write('\n'.join(result))
-    # result = []
-    # for line in summary:
-    #     result.append(' '.join(list(line)))
-    # with open('DATA/data/train.txt', 'w', encoding='utf-8') as f:
-    #     f.write('\n'.join(result))
     print('train.txt save at DATA/data')
