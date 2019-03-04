@@ -16,6 +16,13 @@ def main():
     parser.add_argument('--summary_length', '-s', metavar='NUM', type=int, help='display summary_length')
 
     args = parser.parse_args()
+
+    # # ###### input #######
+    # args.max_length = 140
+    # args.summary_length = 30
+    # # ###### input #######
+    number = False
+
     if args.max_length:
         config.max_length = args.max_length
     if args.summary_length:
@@ -38,7 +45,7 @@ def main():
     test, test_summary = get_datasets(config.filename_test)
 
     # bulid word vocab
-    vocab = get_vocab(train)
+    vocab = get_vocab(train, number)
     word2idx = word2index(vocab, config.vocab_size)
     idx2word = index2word(vocab, config.vocab_size)
 
@@ -48,40 +55,25 @@ def main():
 
     # save npz
     # glove embedding
-    get_embeddings(config.filename_glove, config.filename_embeddings, word2idx, config.vocab_size, config.dim)
+    # get_embeddings(config.filename_glove, config.filename_embeddings, word2idx, config.vocab_size, config.dim)
 
     # train
-    get_trimmed_datasets(config.filename_trimmed_train_text, train, word2idx, config.seq_len)
-    get_trimmed_datasets(config.filename_trimmed_train_summary, train_summary, word2idx, config.summary_len)
+    get_trimmed_datasets(config.filename_trimmed_train_text, train, word2idx, config.seq_len, number)
+    get_trimmed_datasets(config.filename_trimmed_train_summary, train_summary, word2idx, config.summary_len, number)
 
     # valid
-    get_trimmed_datasets(config.filename_trimmed_valid_text, valid, word2idx, config.seq_len)
-    get_trimmed_datasets(config.filename_trimmed_valid_summary, valid_summary, word2idx, config.summary_len)
+    get_trimmed_datasets(config.filename_trimmed_valid_text, valid, word2idx, config.seq_len, number)
+    get_trimmed_datasets(config.filename_trimmed_valid_summary, valid_summary, word2idx, config.summary_len, number)
 
     # test
-    get_trimmed_datasets(config.filename_trimmed_test_text, test, word2idx, config.seq_len)
-    get_trimmed_datasets(config.filename_trimmed_test_summary, test_summary, word2idx, config.summary_len)
+    get_trimmed_datasets(config.filename_trimmed_test_text, test, word2idx, config.seq_len, number)
+    get_trimmed_datasets(config.filename_trimmed_test_summary, test_summary, word2idx, config.summary_len, number)
 
     # gold summaries
-    write_gold_summaries(test_summary, config.gold_summaries)
+    # write_gold_summaries(test_summary, config.gold_summaries)
 
 
 if __name__ == '__main__':
-    # print('build_data...')
-    # main()
-    # print('Done!')
-
-    config = Config()
-    # _, datasets = get_datasets(config.filename_test)
-    # write_gold_summaries(datasets, config.gold_summaries)
-
-    # search word in GloVe
-    train, train_summary = get_datasets_train(config.filename_train)
-    vocab = get_vocab(train)
-    word2idx = word2index(vocab, config.vocab_size)
-    idx2word = index2word(vocab, config.vocab_size)
-    get_embeddings(config.filename_glove, config.filename_embeddings, word2idx, config.vocab_size, config.dim)
-
-    # # get train.txt for training GloVe
-    # text, summary = get_datasets_train(config.filename_train)
-    # write_train(text, summary)
+    print('build_data...')
+    main()
+    print('Done!')

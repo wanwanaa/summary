@@ -6,7 +6,7 @@ class Config():
         self.filename_test = 'DATA/LCSTS/PART_III.txt'
 
         # glove
-        self.dim = 300
+        self.dim = 512
         self.filename_glove = 'DATA/glove.6B/glove.6B.{}d.txt'.format(self.dim)
         # self.filename_glove = 'DATA/glove/vectors.txt'
 
@@ -24,8 +24,8 @@ class Config():
         self.filename_embeddings = 'DATA/data/glove_embeddings_{}d.pt'.format(self.dim)
 
         # sequence length
-        self.seq_len = 114
-        self.summary_len = 22
+        self.seq_len = 150
+        self.summary_len = 50
 
         # bos
         self.bos = 2

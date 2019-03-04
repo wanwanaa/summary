@@ -52,10 +52,35 @@ def get_datasets(filename):
     return text, summary
 
 
-def get_vocab(train_text):
+# digit and english don't split
+def no_split(line):
+    result = []
+    line = list(line)
+    temp = ''
+    i = 0
+    while i < len(line):
+        while i < len(line) and (line[i].isdigit() or
+                                 (line[i] >= 'a' and line[i] <= 'z') or (line[i] >= 'A' and line[i] <= 'Z')):
+            temp += line[i]
+            i += 1
+        if temp:
+           result.append(temp)
+           temp = ''
+        elif i < len(line):
+            result.append(line[i])
+            i += 1
+        else:
+            break
+    return result
+
+
+def get_vocab(train_text, number):
     vocab = {}
     for line in train_text:
-        line = list(line)
+        if number:
+            line = no_split(line)
+        else:
+            line = list(line)
         for v in line:
             flag = vocab.get(v)
             if flag is None:
@@ -91,12 +116,15 @@ def write_vocab(filename, vocab):
     print('vocab saved at: DATA/result')
 
 
-# save npy
-def get_trimmed_datasets(filename, datasets, word2idx, max_length):
+# save pt
+def get_trimmed_datasets(filename, datasets, word2idx, max_length, number):
     data = np.zeros([len(datasets), max_length])
     k = 0
     for line in datasets:
-        line = list(line)
+        if number:
+            line = no_split(line)
+        else:
+            line = list(line)
         sen = np.zeros(max_length, dtype=np.int32)
         for i in range(max_length):
             if i == len(line):
@@ -118,6 +146,8 @@ def get_trimmed_datasets(filename, datasets, word2idx, max_length):
 def index2sentence(index, idx2word):
     sen = []
     for i in range(len(index)):
+        if idx2word[index[i]] == '<bos>':
+            continue
         if idx2word[index[i]] == '<eos>':
             break
         else:

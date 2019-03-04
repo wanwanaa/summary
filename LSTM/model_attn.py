@@ -48,17 +48,9 @@ class Attention(nn.Module):
         self.hidden_size = hidden_size
         self.t_len = t_len
 
-        # # attention
-        # self.attn = nn.Sequential(
-        #     nn.Linear(self.hidden_size * 2, self.hidden_size),
-        #     nn.ReLU(),
-        #     nn.Linear(self.hidden_size, 1)
-        # )
-
-        self.attn = nn.Sequential(
-            nn.Linear(self.hidden_size * 2, 1),
-            nn.ReLU()
-        )
+        self.linear_in = nn.Sequential(nn.Linear(hidden_size, hidden_size), nn.SELU(), nn.Dropout(p=0.1),
+                                       nn.Linear(hidden_size, hidden_size), nn.SELU(), nn.Dropout(p=0.1))
+        self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, hidden, encoder_out):
         """
@@ -68,16 +60,15 @@ class Attention(nn.Module):
                   context (batch, 1, hidden_size) attention vector
         """
 
-        # hidden (n_layers, batch, hidden_size) -> (1, batch, hidden_size)
-        #     -> (batch, 1, hidden_size) -> (batch, time_step, hidden_size)
-        hidden = hidden[-1].view(-1, 1, self.hidden_size).repeat(1, encoder_out.size(1), 1)
+        hidden = self.linear_in(hidden).view(-1, self.hidden_size, hidden.size(0)) # (n_layer, batch, hidden)
+        # print('hidden:', hidden.size())
+        weights = torch.bmm(encoder_out, hidden).view(-1, hidden.size(2), self.t_len) # (batch, n_layer, time_step)
+        # print('weights:', weights.size())
+        weights = self.softmax(weights)
 
-        vector = torch.cat((hidden, encoder_out), dim=2)
-        attn_weights = self.attn(vector).squeeze(2)
-        attn_weights = F.softmax(attn_weights).unsqueeze(1)
-
-        context = torch.bmm(attn_weights, encoder_out)  # (batch, 1, hidden_size)
-        return attn_weights, context
+        context = torch.bmm(weights, encoder_out).view(hidden.size(2), -1, self.hidden_size)  # (n_layer, batch, hidden_size)
+        # print(context.size())
+        return weights, context
 
 
 class AttnDecoder(nn.Module):
@@ -92,11 +83,13 @@ class AttnDecoder(nn.Module):
         self.num_layers = num_layers
 
         # decoder
-        self.decoder_gru = nn.GRU(self.embedding_dim+self.hidden_size,
+        self.decoder_gru = nn.GRU(self.hidden_size,
                                   self.hidden_size,
                                   batch_first=True,
                                   num_layers=num_layers)
         self.decoder_vocab = nn.Linear(self.hidden_size, self.vocab_size)
+        self.linear_out = nn.Sequential(nn.Linear(hidden_size*2, hidden_size), nn.SELU(), nn.Dropout(p=0.1),
+                                       nn.Linear(hidden_size, hidden_size), nn.SELU(), nn.Dropout(p=0.1))
 
     def forward(self, x, h, encoder_output):
         """
@@ -109,9 +102,10 @@ class AttnDecoder(nn.Module):
                   h (batch, n_layer, hidden_size) decoder hidden state
         """
         e = self.embeds(x).unsqueeze(1)
+        out, h = self.decoder_gru(e, h)
         attn_weight, context = self.attention(h, encoder_output)
-        inputs = torch.cat((e, context), dim=2)
-        out, h = self.decoder_gru(inputs, h)
+        h = torch.cat((h, context), dim=2)
+        h = self.linear_out(h)
         return out, h
 
 
