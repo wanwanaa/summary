@@ -3,4 +3,4 @@ result/
 models/
 DATA/
 LCSTS_char/__pycache__/
-LSTM/__pycache__/
+GRU/__pycache__/

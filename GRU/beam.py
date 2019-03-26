@@ -14,7 +14,7 @@ def get_prob(model, y, hidden, encoder_outputs, attention):
 
 
 def max_prob(candidate):
-    v = 0
+    v = -999
     p = 0 # position of max
     for i in range(len(candidate)):
         if candidate[i][-1] > v:

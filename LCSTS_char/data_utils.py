@@ -87,7 +87,7 @@ def get_vocab(train_text, number):
                 vocab[v] = 0
             else:
                 vocab[v] += 1
-    vocab = sorted(vocab.items(), key=lambda x:x[1], reverse=True)
+    vocab = sorted(vocab.items(), key=lambda x: x[1], reverse=True)
     return vocab
 
 
