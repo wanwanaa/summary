@@ -1,7 +1,7 @@
 import argparse
 from LCSTS_char.config import Config
-from LSTM.save_load import load_model
-from LSTM.train_util import beam_test
+from GRU.save_load import load_model
+from GRU.train_util import beam_test
 from LCSTS_char.data_utils import load_embeddings
 
 # result

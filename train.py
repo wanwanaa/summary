@@ -3,10 +3,9 @@ import argparse
 import torch
 import torch.nn as nn
 from LCSTS_char.config import Config
-import LSTM
-from LSTM.save_load import save_model
+from GRU.save_load import save_model
 from LCSTS_char.data_utils import load_data, load_embeddings
-from LSTM.train_util import valid, test, save_plot
+from GRU.train_util import valid, test, save_plot
 
 
 # filename
